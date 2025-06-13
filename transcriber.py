@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 load_dotenv()
 
 # Configure OpenAI client
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # OpenAI's Whisper API has a 25 MB file size limit
 MAX_FILE_SIZE = 25 * 1024 * 1024  # 25 MB in bytes
@@ -64,8 +64,11 @@ async def transcribe_audio_from_public_url(public_url: str) -> str:
                 if file_size > 0 and file_size <= MAX_FILE_SIZE:
                     # Transcribe the whole file if it's within the size limit
                     with open(local_file_path, "rb") as audio_file:
-                        transcript = openai.Audio.transcribe("whisper-1", audio_file)
-                    return transcript['text']
+                        transcript = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=audio_file
+                        )
+                    return transcript.text
                 else:
                     # If the file is large or size is unknown, split and transcribe
                     return await split_and_transcribe_audio(local_file_path, temp_dir)
@@ -103,7 +106,10 @@ async def split_and_transcribe_audio(file_path: str, temp_dir: str) -> str:
         )
 
         with open(chunk_path, "rb") as audio_file:
-            transcript_chunk = openai.Audio.transcribe("whisper-1", audio_file)
-            full_transcript += transcript_chunk['text'] + " "
+            transcript_chunk = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file
+            )
+            full_transcript += transcript_chunk.text + " "
 
     return full_transcript.strip()
